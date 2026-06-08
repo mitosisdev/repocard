@@ -2,18 +2,25 @@
 import { writeFileSync } from "fs";
 import { resolve } from "path";
 import { generateCard, type RepoData } from "./card";
+import { generateBadge } from "./badge";
 
-const args = process.argv.slice(2);
+const rawArgs = process.argv.slice(2);
 
-if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
-  console.error("Usage: repocard <owner/repo> [output.svg]");
+// Pull out flags, keeping positional args separate so existing usage is unchanged.
+const badgeMode = rawArgs.includes("--badge");
+const args = rawArgs.filter((a) => a !== "--badge");
+
+if (rawArgs.length === 0 || rawArgs[0] === "--help" || rawArgs[0] === "-h") {
+  console.error("Usage: repocard <owner/repo> [output.svg] [--badge]");
   console.error("  Example: repocard mitosisdev/gitstory");
   console.error("  Example: repocard mitosisdev/gitstory my-card.svg");
-  process.exit(args.length === 0 ? 1 : 0);
+  console.error("  Example: repocard mitosisdev/gitstory --badge");
+  console.error("  --badge   Generate a compact 280x80 badge instead of the full card");
+  process.exit(rawArgs.length === 0 ? 1 : 0);
 }
 
 const repoArg = args[0];
-const outputArg = args[1] ?? "repocard.svg";
+const outputArg = args[1] ?? (badgeMode ? "repocard-badge.svg" : "repocard.svg");
 
 if (!repoArg.includes("/")) {
   console.error(`Error: expected "owner/repo" format, got: ${repoArg}`);
@@ -63,7 +70,13 @@ async function fetchRepoData(repo: string): Promise<RepoData> {
 
 async function main() {
   const repoData = await fetchRepoData(repoArg);
-  const svg = generateCard(repoData);
+  const svg = badgeMode
+    ? generateBadge({
+        name: repoData.name,
+        stars: repoData.stars,
+        language: repoData.language || null,
+      })
+    : generateCard(repoData);
 
   const outputPath = resolve(process.cwd(), outputArg);
   writeFileSync(outputPath, svg, "utf-8");
